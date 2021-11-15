@@ -16,7 +16,7 @@ var (
 	// Author is the author of the application
 	Author = "@mrinjamul"
 	// Version is the version of the application
-	Version = "0.1.0"
+	Version = "dev"
 	// CommitHash is the commit hash of the application
 	CommitHash = "none"
 	// BuildDate is the date of the build
@@ -27,6 +27,7 @@ var (
 var (
 	flagHelp    bool
 	flagVersion bool
+	flagRaw     bool
 )
 
 func main() {
@@ -56,31 +57,33 @@ func main() {
 		fmt.Println("No file specified")
 		os.Exit(1)
 	}
-	// check if argument is greater than 1
-	if len(args) > 1 {
-		fmt.Println("Only one file can be specified")
-		os.Exit(1)
+	for _, path := range args {
+		// check if file exists
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			fmt.Println("File does not exist")
+			continue
+		}
+		// check if it is a file else print error
+		if isDir(path) {
+			fmt.Println("File is a directory")
+			continue
+		}
+		// check if it is markdown file
+		if !isMarkdownFile(path) {
+			printFiles(path)
+			continue
+		}
+		if flagRaw {
+			printFiles(path)
+			continue
+		}
+		printMarkdownFile(path)
 	}
-	// check if file exists
-	if _, err := os.Stat(args[0]); os.IsNotExist(err) {
-		fmt.Println("File does not exist")
-		os.Exit(1)
-	}
-	// check if it is a file else print error
-	if isDir(args[0]) {
-		fmt.Println("File is a directory")
-		os.Exit(1)
-	}
-	if !isMarkdownFile(args[0]) {
-		printFiles(args[0])
-		os.Exit(0)
-	}
-
-	printMarkdownFile(args[0])
 
 }
 
 func init() {
+	flag.BoolVarP(&flagRaw, "raw", "r", false, "print raw markdown")
 	flag.BoolVarP(&flagHelp, "help", "h", false, "print help")
 	flag.BoolVarP(&flagVersion, "version", "v", false, "print version")
 }
