@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/mrinjamul/mdcat/app"
 	flag "github.com/spf13/pflag"
 )
 
@@ -53,9 +54,35 @@ func main() {
 	args := flag.Args()
 
 	// check if argument is present
-	if len(args) == 0 {
+	if len(args) == 0 && !app.IsInputFromPipe() {
 		fmt.Println("No file specified")
 		os.Exit(1)
+	}
+	// check if data is piped
+	if app.IsInputFromPipe() {
+		// read from pipe
+		reader := bufio.NewReader(os.Stdin)
+		var output []rune
+
+		for {
+			input, _, err := reader.ReadRune()
+			if err != nil && err == io.EOF {
+				break
+			}
+			output = append(output, input)
+		}
+		// print from pipe
+		if flagRaw {
+			fmt.Println(string(output))
+			return
+		}
+		out, err := glamour.Render(string(output), "dark")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Print(out)
+		return
 	}
 	for _, path := range args {
 		// check if file exists
@@ -64,20 +91,20 @@ func main() {
 			continue
 		}
 		// check if it is a file else print error
-		if isDir(path) {
+		if app.IsDir(path) {
 			fmt.Println("File is a directory")
 			continue
 		}
 		// check if it is markdown file
-		if !isMarkdownFile(path) {
-			printFiles(path)
+		if !app.IsMarkdownFile(path) {
+			app.PrintFiles(path)
 			continue
 		}
 		if flagRaw {
-			printFiles(path)
+			app.PrintFiles(path)
 			continue
 		}
-		printMarkdownFile(path)
+		app.PrintMarkdownFile(path)
 	}
 
 }
@@ -96,47 +123,4 @@ func printUsage() {
 }
 func printVersion() {
 	fmt.Println(AppName + " " + Version + "+" + CommitHash + " " + BuildDate + " by " + Author)
-}
-
-// isDir checks if a path is a directory
-func isDir(path string) bool {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return fileInfo.IsDir()
-}
-
-// check if the file is markdown file or not using extension
-func isMarkdownFile(path string) bool {
-	ext := filepath.Ext(path)
-	if ext == ".md" || ext == ".markdown" || ext == ".mdown" || ext == ".mkd" || ext == ".mkdn" || ext == ".mdwn" || ext == ".mdtxt" || ext == ".mdtext" {
-		return true
-	}
-	return false
-}
-
-// printFiles get the file path and print the content into stdout
-func printFiles(path string) {
-	buf, err := ioutil.ReadFile(path)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	fmt.Println(string(buf))
-}
-
-// printMarkdownFile get the file path and print the markdown with the help of glamour package
-func printMarkdownFile(path string) {
-	buf, err := ioutil.ReadFile(path)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	out, err := glamour.Render(string(buf), "dark")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	fmt.Print(out)
 }
